@@ -1,0 +1,37 @@
+Implementeer de hero title auto-fit functie zoals in het voorbeeld. 
+De .hero__content container krijgt max-width: 768px en margin: 0 auto zodat de tekst gecentreerd en begrensd blijft op brede schermen. 
+De JS binary search functie past de font-size aan zodat de titel altijd op één regel past binnen de container. 
+Vergeet white-space: nowrap niet op .hero__title en verwijder de bestaande clamp() font-size. 
+Roep fitHeroTitle() ook aan na elke dynamische titel-update.
+
+Dan ben je klaar met die CSS. Wel even text-align expliciet zetten voor de zekerheid:
+
+.hero__content {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 36px 0;
+  padding-bottom: calc(40px + env(safe-area-inset-bottom));
+  max-width: 768px;
+  margin: 0 auto;
+  text-align: center;      /* ← voor subtext/knoppen onder de titel */
+}
+
+En de white-space: nowrap op .hero__title niet vergeten, anders meet de JS verkeerd:
+
+.hero__title {
+  font-family: var(--ff-display);
+  font-weight: 300;
+  line-height: 1.07;
+  color: var(--white);
+  white-space: nowrap;     /* ← cruciaal voor correcte meting */
+  margin: 0 0 24px;
+  opacity: 0;
+  transform: translateY(16px);
+  animation: fadeUp 0.8s 0.6s forwards ease-out;
+}
+
+De font-size: clamp(...) kun je gewoon weghalen — die wordt toch overschreven door de JS.
+
+

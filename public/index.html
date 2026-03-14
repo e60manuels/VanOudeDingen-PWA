@@ -57,7 +57,7 @@
     .header.hidden { transform: translateY(calc(-100% - 20px)); }
 
     .header__logo { display: flex; align-items: center; }
-    .header__logo svg { height: 32px; width: auto; }
+    .header__logo svg { height: 38px; width: auto; }
 
     .header__actions { display: flex; gap: 2px; align-items: center; flex-shrink: 0; }
     .header__btn { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
@@ -67,8 +67,8 @@
     .hero { position: relative; width: 100%; height: 60vh; min-height: 360px; max-height: 560px; overflow: hidden; background: #1a1613; }
     .hero__media { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
     .hero__overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(28,25,23,0.42) 0%, transparent 28%, transparent 42%, rgba(28,25,23,0.78) 100%); }
-    .hero__content { position: absolute; bottom: 0; left: 0; right: 0; padding: 36px 20px; padding-bottom: calc(40px + env(safe-area-inset-bottom)); }
-    .hero__title { font-family: var(--ff-display); font-size: clamp(2.1rem, 8.5vw, 3.5rem); font-weight: 300; line-height: 1.07; color: var(--white); margin-bottom: 24px; opacity: 0; transform: translateY(16px); animation: fadeUp 0.8s 0.6s forwards ease-out; }
+    .hero__content { position: absolute; bottom: 0; left: 0; right: 0; padding: 36px 16px; padding-bottom: calc(40px + env(safe-area-inset-bottom)); max-width: 768px; margin: 0 auto; }
+    .hero__title { font-family: var(--ff-display); font-size: 5vw; font-weight: 300; line-height: 1.07; color: var(--white); white-space: nowrap; margin: 0 0 24px; opacity: 0; transform: translateY(16px); animation: fadeUp 0.8s 0.6s forwards ease-out; }
     .hero__title em { font-style: normal; color: inherit; }
     .hero__cta { display: inline-flex; align-items: center; gap: 10px; padding: 13px 22px; background: var(--white); color: var(--ink); font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; border-radius: 2px; opacity: 0; transform: translateY(10px); animation: fadeUp 0.7s 0.85s forwards ease-out; }
     .hero__cta svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2; }
@@ -86,7 +86,7 @@
   </style>
 
   <!-- Main Styles (Deferred) -->
-  <link rel="stylesheet" href="css/style.css?v=1.2.0" media="print" onload="this.media='all'" />
+  <link rel="stylesheet" href="css/style.css?v=1.2.9" media="print" onload="this.media='all'" />
 </head>
 <body>
 
@@ -196,6 +196,6 @@
   </aside>
 
   <!-- App Logic (Deferred) -->
-  <script src="js/app.js?v=1.2.0" defer></script>
+  <script src="js/app.js?v=1.2.9" defer></script>
 </body>
 </html>

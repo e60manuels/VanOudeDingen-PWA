@@ -1,11 +1,17 @@
 const API = 'https://vanoudedingen.nl/wp-json/wp/v2';
 const SKIP = ['inspiratie', 'koopjeshoek', 'illustratie'];
-const APP_VERSION = 'v1.2.1';
+const APP_VERSION = 'v1.2.9';
 
 let allPosts = [];
 let cats = {}; // id → category
 let drawerMenuPages = [];
 let editorialPages = null;
+
+/* ── BACK NAVIGATION STACK ── */
+let panelStack = [];
+let backPressCount = 0;
+let lastBackPressTime = 0;
+const BACK_PRESS_DELAY = 2000; // 2 seconds between presses to exit app
 
 /* ── HELPERS ── */
 
@@ -452,6 +458,7 @@ window.openPanel = (p) => {
   document.getElementById('panelOverlay').classList.add('open');
   document.getElementById('detailPanel').classList.add('open');
   document.body.style.overflow = 'hidden';
+  panelStack.push('detail');
   history.pushState({ panel: 'detail' }, '');
 };
 
@@ -460,6 +467,7 @@ window.closePanel = () => {
   document.getElementById('detailPanel').classList.remove('open');
   document.body.style.overflow = '';
   document.getElementById('detailPanel').scrollTop = 0;
+  panelStack.pop();
 };
 
 function initGalleryArrows(gallery) {
@@ -493,6 +501,7 @@ window.openMenu = () => {
   menuDrawer.classList.add('open');
   menuOverlay.classList.add('open');
   document.body.style.overflow = 'hidden';
+  panelStack.push('menu');
   history.pushState({ panel: 'menu' }, '');
 };
 
@@ -502,6 +511,7 @@ window.closeMenu = () => {
   menuDrawer.classList.remove('open');
   menuOverlay.classList.remove('open');
   document.body.style.overflow = '';
+  panelStack.pop();
 };
 
 window.openPagePanel = (pageData) => {
@@ -549,13 +559,14 @@ window.openPagePanel = (pageData) => {
   let heroHtml = '';
   if (galleryItems.length === 0) {
     const feat = getImg(pageData, 'large');
-    if (feat) heroHtml = `<img src="${feat}" alt="${getPageTitle(pageData)}" class="page-panel__hero-img" />`;
+    if (feat) heroHtml = `<div class="page-panel__hero-wrap"><img src="${feat}" alt="${getPageTitle(pageData)}" class="page-panel__hero-img" /></div>`;
   }
 
   pagePanelContent.innerHTML = heroHtml + galleryHtml + `<div class="page-panel__body">${cleanContent}</div>`;
   pagePanel.classList.add('open');
   pageOverlay.classList.add('open');
   document.body.style.overflow = 'hidden';
+  panelStack.push('page');
   history.pushState({ panel: 'page' }, '');
 };
 
@@ -563,6 +574,7 @@ window.closePagePanel = () => {
   document.getElementById('pagePanel').classList.remove('open');
   document.getElementById('pageOverlay').classList.remove('open');
   document.body.style.overflow = '';
+  panelStack.pop();
 };
 
 window.renderDrawerMenu = () => {
@@ -603,18 +615,39 @@ window.renderDrawerMenu = () => {
     } catch (e) { console.error("Error fetching drawer menu pages:", e); }
   }
 
+  // Handle Escape key
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
-      if (document.getElementById('pagePanel')?.classList.contains('open')) window.closePagePanel();
-      else if (document.getElementById('menuDrawer')?.classList.contains('open')) window.closeMenu();
-      else if (document.getElementById('detailPanel')?.classList.contains('open')) closePanel();
+      if (panelStack.length > 0) {
+        const topPanel = panelStack[panelStack.length - 1];
+        if (topPanel === 'detail') closePanel();
+        else if (topPanel === 'page') window.closePagePanel();
+        else if (topPanel === 'menu') window.closeMenu();
+      }
     }
   });
 
+  // Handle Android back button via popstate
   window.addEventListener('popstate', () => {
-    if (document.getElementById('detailPanel')?.classList.contains('open')) closePanel();
-    else if (document.getElementById('pagePanel')?.classList.contains('open')) window.closePagePanel();
-    else if (document.getElementById('menuDrawer')?.classList.contains('open')) window.closeMenu();
+    if (panelStack.length > 0) {
+      // Close the topmost panel
+      const topPanel = panelStack[panelStack.length - 1];
+      if (topPanel === 'detail') closePanel();
+      else if (topPanel === 'page') window.closePagePanel();
+      else if (topPanel === 'menu') window.closeMenu();
+    } else {
+      // We're at home state - check if this is a second back press
+      const now = Date.now();
+      if (now - lastBackPressTime < BACK_PRESS_DELAY) {
+        // Second press within delay - allow app to exit
+        backPressCount = 0;
+      } else {
+        // First press - push home state again to prevent exit
+        backPressCount = 1;
+        lastBackPressTime = now;
+        history.pushState({ page: 'home' }, '');
+      }
+    }
   });
 
   try {
@@ -624,7 +657,7 @@ window.renderDrawerMenu = () => {
     // 2. Laad Categorieën & Carousel (Kritiek navigatiepad)
     const catList = await fetchCats();
     // We laden alvast wat posts voor de carousel afbeeldingen (indien nodig)
-    const initialPosts = await fetchPosts(); 
+    const initialPosts = await fetchPosts();
     renderFilters(catList);
     await renderSwiper(catList, initialPosts);
 
@@ -645,6 +678,9 @@ window.renderDrawerMenu = () => {
     Promise.all([fetchDrawerMenuPages(), getEditorialPages()]).then(() => {
       window.renderDrawerMenu();
     });
+
+    // 5. Push initial home state for back navigation protection
+    history.replaceState({ page: 'home' }, '');
 
   } catch (e) {
     console.error('Initialization error:', e);
