@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "vanoudedingen-bca6c"
+  },
+  "targets": {
+    "vanoudedingen-bca6c": {
+      "hosting": {
+        "vanoudedingen": [
+          "vanoudedingen"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

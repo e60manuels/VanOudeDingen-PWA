@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VOD Deploy Tool</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #F5F2ED;
+      color: #1C1917;
+      padding: 24px 16px;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+    h1 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+    }
+    .subtitle {
+      font-size: 0.78rem;
+      color: #8C8078;
+      margin-bottom: 28px;
+    }
+    label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: #8C8078;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .field { margin-bottom: 18px; }
+    input[type=text], textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid rgba(28,25,23,0.18);
+      border-radius: 6px;
+      background: #fff;
+      font-family: 'Courier New', monospace;
+      font-size: 0.78rem;
+      color: #1C1917;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input[type=text]:focus, textarea:focus {
+      border-color: #C4611F;
+    }
+    input[type=password] {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid rgba(28,25,23,0.18);
+      border-radius: 6px;
+      background: #fff;
+      font-family: 'Courier New', monospace;
+      font-size: 0.78rem;
+      color: #1C1917;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input[type=password]:focus { border-color: #C4611F; }
+    textarea { height: 160px; resize: vertical; }
+    .token-wrap { position: relative; }
+    .token-wrap input { padding-right: 70px; }
+    .toggle-btn {
+      position: absolute;
+      right: 10px; top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.7rem;
+      color: #8C8078;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px 6px;
+    }
+    .deploy-btn {
+      width: 100%;
+      padding: 13px;
+      background: #1C1917;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+    }
+    .deploy-btn:hover { background: #2a2320; }
+    .deploy-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .progress {
+      margin-top: 20px;
+      display: none;
+    }
+    .progress.visible { display: block; }
+    .step-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(28,25,23,0.07);
+      font-size: 0.82rem;
+    }
+    .step-row:last-child { border-bottom: none; }
+    .step-icon {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.65rem;
+      flex-shrink: 0;
+      background: rgba(28,25,23,0.08);
+      color: #8C8078;
+    }
+    .step-icon.active {
+      background: #C4611F;
+      color: #fff;
+      animation: pulse 1s infinite;
+    }
+    .step-icon.done { background: #1D9E75; color: #fff; }
+    .step-icon.error { background: #E24B4A; color: #fff; }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.6; } }
+    .step-label { color: #1C1917; }
+    .step-label.muted { color: #8C8078; }
+    .result-box {
+      margin-top: 20px;
+      padding: 14px 16px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      line-height: 1.6;
+      display: none;
+    }
+    .result-box.visible { display: block; }
+    .result-box.ok {
+      background: #E1F5EE;
+      border: 1px solid #1D9E75;
+      color: #085041;
+    }
+    .result-box.err {
+      background: #FCEBEB;
+      border: 1px solid #E24B4A;
+      color: #A32D2D;
+    }
+    .result-url {
+      display: inline-block;
+      margin-top: 8px;
+      color: #C4611F;
+      text-decoration: underline;
+      font-weight: 500;
+    }
+    .save-hint {
+      margin-top: 10px;
+      font-size: 0.72rem;
+      color: #8C8078;
+    }
+    .file-btn {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 7px 14px;
+      border: 1px solid rgba(28,25,23,0.2);
+      border-radius: 6px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      background: #fff;
+      color: #1C1917;
+    }
+    .file-btn:hover { background: #F5F2ED; }
+    #fileInput { display: none; }
+  </style>
+</head>
+<body>
+
+  <h1>VOD Deploy Tool</h1>
+  <p class="subtitle">Deployen naar vanoudedingen.web.app</p>
+
+  <div class="field">
+    <label>Firebase CI Token</label>
+    <div class="token-wrap">
+      <input type="password" id="token" placeholder="1//0g..." autocomplete="off" value="" />
+      <button class="toggle-btn" onclick="toggleToken()">toon</button>
+    </div>
+    <p class="save-hint">Token wordt niet opgeslagen — vul hem elke sessie opnieuw in.</p>
+  </div>
+
+  <div class="field">
+    <label>index.html — plak code of upload bestand</label>
+    <button class="file-btn" onclick="document.getElementById('fileInput').click()">
+      Bestand kiezen
+    </button>
+    <input type="file" id="fileInput" accept=".html" onchange="loadFile(event)" />
+    <p class="save-hint" id="fileName">Nog geen bestand gekozen</p>
+    <textarea id="htmlContent" placeholder="Of plak hier de volledige index.html inhoud..."></textarea>
+  </div>
+
+  <button class="deploy-btn" id="deployBtn" onclick="startDeploy()">
+    Deployen naar vanoudedingen.web.app
+  </button>
+
+  <div class="progress" id="progress">
+    <div class="step-row" id="s1">
+      <div class="step-icon" id="i1">1</div>
+      <span class="step-label muted" id="l1">Access token ophalen</span>
+    </div>
+    <div class="step-row" id="s2">
+      <div class="step-icon" id="i2">2</div>
+      <span class="step-label muted" id="l2">Nieuwe versie aanmaken</span>
+    </div>
+    <div class="step-row" id="s3">
+      <div class="step-icon" id="i3">3</div>
+      <span class="step-label muted" id="l3">Bestanden registreren</span>
+    </div>
+    <div class="step-row" id="s4">
+      <div class="step-icon" id="i4">4</div>
+      <span class="step-label muted" id="l4">Bestand uploaden</span>
+    </div>
+    <div class="step-row" id="s5">
+      <div class="step-icon" id="i5">5</div>
+      <span class="step-label muted" id="l5">Versie afsluiten & releasen</span>
+    </div>
+  </div>
+
+  <div class="result-box" id="resultBox"></div>
+
+  <script>
+    function toggleToken() {
+      const inp = document.getElementById('token');
+      const btn = inp.parentElement.querySelector('.toggle-btn');
+      if (inp.type === 'password') { inp.type = 'text'; btn.textContent = 'verberg'; }
+      else { inp.type = 'password'; btn.textContent = 'toon'; }
+    }
+
+    function loadFile(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      document.getElementById('fileName').textContent = file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
+      const reader = new FileReader();
+      reader.onload = ev => document.getElementById('htmlContent').value = ev.target.result;
+      reader.readAsText(file);
+    }
+
+    function setStep(n, state, label) {
+      const icon  = document.getElementById('i' + n);
+      const lbl   = document.getElementById('l' + n);
+      icon.className = 'step-icon ' + state;
+      icon.textContent = state === 'done' ? '✓' : state === 'error' ? '✕' : n;
+      if (label) { lbl.textContent = label; lbl.className = 'step-label'; }
+    }
+
+    function showResult(msg, url, isOk) {
+      const box = document.getElementById('resultBox');
+      box.className = 'result-box visible ' + (isOk ? 'ok' : 'err');
+      box.innerHTML = msg + (url ? '<br><a class="result-url" href="' + url + '" target="_blank">' + url + '</a>' : '');
+    }
+
+    async function getAccessToken(ciToken) {
+      const resp = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: ciToken,
+          client_id: '563584335869-fgrhgmd47bqnekij5i8b5pr03ho849e6.apps.googleusercontent.com',
+          client_secret: 'j9iVZfS8ysoslcGqqy6sXh8k'
+        })
+      });
+      const data = await resp.json();
+      if (!data.access_token) throw new Error('Token uitwisseling mislukt: ' + JSON.stringify(data));
+      return data.access_token;
+    }
+
+    async function sha256hex(str) {
+      const buf = new TextEncoder().encode(str);
+      const hashBuf = await crypto.subtle.digest('SHA-256', buf);
+      return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2,'0')).join('');
+    }
+
+    async function gzip(str) {
+      const stream = new Blob([str]).stream().pipeThrough(new CompressionStream('gzip'));
+      return await new Response(stream).arrayBuffer();
+    }
+
+    async function startDeploy() {
+      const token = document.getElementById('token').value.trim();
+      const html  = document.getElementById('htmlContent').value.trim();
+      const btn   = document.getElementById('deployBtn');
+
+      if (!token) { showResult('Vul je Firebase CI token in.', null, false); return; }
+      if (!html)  { showResult('Voeg de index.html inhoud toe.', null, false); return; }
+
+      btn.disabled = true;
+      document.getElementById('progress').className = 'progress visible';
+      document.getElementById('resultBox').className = 'result-box';
+
+      const BASE    = 'https://firebasehosting.googleapis.com/v1beta1';
+      const SITE_ID = 'vanoudedingen';
+
+      try {
+        setStep(1, 'active');
+        const accessToken = await getAccessToken(token);
+        setStep(1, 'done');
+
+        setStep(2, 'active');
+        const vResp = await fetch(`${BASE}/sites/${SITE_ID}/versions`, {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ config: { headers: [{ glob: '**', headers: { 'Cache-Control': 'max-age=3600' } }] } })
+        });
+        const vData = await vResp.json();
+        if (!vData.name) throw new Error('Versie aanmaken mislukt: ' + JSON.stringify(vData));
+        const versionName = vData.name;
+        setStep(2, 'done');
+
+        setStep(3, 'active');
+        const fileHash = await sha256hex(html);
+        const pResp = await fetch(`${BASE}/${versionName}:populateFiles`, {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ files: { '/index.html': fileHash } })
+        });
+        const pData = await pResp.json();
+        setStep(3, 'done');
+
+        setStep(4, 'active');
+        const required = pData.uploadRequiredHashes || [];
+        if (required.includes(fileHash) && pData.uploadUrl) {
+          const compressed = await gzip(html);
+          const uResp = await fetch(`${pData.uploadUrl}/${fileHash}`, {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/octet-stream' },
+            body: compressed
+          });
+          if (!uResp.ok) throw new Error('Upload mislukt: HTTP ' + uResp.status);
+          setStep(4, 'done');
+        } else {
+          setStep(4, 'done', 'Bestand ongewijzigd — upload overgeslagen');
+        }
+
+        setStep(5, 'active');
+        const fResp = await fetch(`${BASE}/${versionName}?updateMask=status`, {
+          method: 'PATCH',
+          headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'FINALIZED' })
+        });
+        const fData = await fResp.json();
+        if (fData.status !== 'FINALIZED') throw new Error('Afsluiten mislukt: ' + JSON.stringify(fData));
+
+        const rResp = await fetch(`${BASE}/sites/${SITE_ID}/releases?versionName=${versionName}`, {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' }
+        });
+        const rData = await rResp.json();
+        if (!rData.name) throw new Error('Release mislukt: ' + JSON.stringify(rData));
+        setStep(5, 'done');
+
+        showResult('Deploy geslaagd! De app is live op:', 'https://vanoudedingen.web.app', true);
+
+      } catch(e) {
+        for (let n = 1; n <= 5; n++) {
+          if (document.getElementById('i' + n).className.includes('active')) {
+            setStep(n, 'error');
+          }
+        }
+        showResult('Fout: ' + e.message, null, false);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1C1917" />
+  <meta name="description" content="Van Oude Dingen — vintage meubels en woonaccessoires" />
+  <title>Van Oude Dingen</title>
+
+  <!-- PWA Manifest & iOS Support -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="V.O.D.">
+
+  <!-- Preconnect & Preload -->
+  <link rel="preconnect" href="https://vanoudedingen.nl" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  
+  <!-- Optimized Font Loading (Removed Special Elite) -->
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+
+  <!-- Preload Critical API Calls (Categories & First Page) -->
+  <link rel="preload" as="fetch" crossorigin href="https://vanoudedingen.nl/wp-json/wp/v2/categories?per_page=50&hide_empty=true&_fields=id,name,slug,count" />
+  <link rel="preload" as="fetch" crossorigin href="https://vanoudedingen.nl/wp-json/wp/v2/posts?per_page=24&page=1&_embed=wp:featuredmedia&_fields=id,slug,title,categories,content,_links,_embedded,type,link" />
+
+  <!-- Critical CSS -->
+  <style>
+    :root {
+      --bg:        #F5F2ED;
+      --ink:       #1C1917;
+      --ink-soft:  #8C8078;
+      --accent:    #C4611F;
+      --white:     #FFFFFF;
+      --gap:       2px;
+      --header-h:  56px;
+      --ff-display: 'Cormorant Garamond', Georgia, serif;
+      --ff-ui:      'DM Sans', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+    body { background: var(--bg); color: var(--ink); font-family: var(--ff-ui); font-weight: 300; overscroll-behavior-y: none; }
+    img { display: block; width: 100%; height: 100%; object-fit: cover; }
+    button { border: none; background: none; cursor: pointer; font-family: inherit; }
+
+    /* ── HEADER & LOGO ── */
+    .header {
+      position: fixed; top: 12px; left: 12px; right: 12px; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 48px; padding: 0 16px; border-radius: 0;
+      background: rgba(10, 8, 7, 0.82); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      transition: transform 0.3s ease, box-shadow 0.3s ease; box-shadow: 0 2px 20px rgba(0,0,0,0.35);
+    }
+    .header.scrolled { box-shadow: 0 4px 28px rgba(0,0,0,0.45); }
+    .header.hidden { transform: translateY(calc(-100% - 20px)); }
+
+    .header__logo { display: flex; align-items: center; }
+    .header__logo svg { height: 32px; width: auto; }
+
+    .header__actions { display: flex; gap: 2px; align-items: center; flex-shrink: 0; }
+    .header__btn { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+    .header__btn svg { width: 20px; height: 20px; stroke: var(--white); fill: none; stroke-width: 1.5; }
+
+    /* ── HERO ── */
+    .hero { position: relative; width: 100%; height: 60vh; min-height: 360px; max-height: 560px; overflow: hidden; background: #1a1613; }
+    .hero__media { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .hero__overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(28,25,23,0.42) 0%, transparent 28%, transparent 42%, rgba(28,25,23,0.78) 100%); }
+    .hero__content { position: absolute; bottom: 0; left: 0; right: 0; padding: 36px 20px; padding-bottom: calc(40px + env(safe-area-inset-bottom)); }
+    .hero__title { font-family: var(--ff-display); font-size: clamp(2.1rem, 8.5vw, 3.5rem); font-weight: 300; line-height: 1.07; color: var(--white); margin-bottom: 24px; opacity: 0; transform: translateY(16px); animation: fadeUp 0.8s 0.6s forwards ease-out; }
+    .hero__title em { font-style: normal; color: inherit; }
+    .hero__cta { display: inline-flex; align-items: center; gap: 10px; padding: 13px 22px; background: var(--white); color: var(--ink); font-size: 0.7rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; border-radius: 2px; opacity: 0; transform: translateY(10px); animation: fadeUp 0.7s 0.85s forwards ease-out; }
+    .hero__cta svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+    @keyframes fadeUp { to { opacity: 1; transform: none; } }
+
+    /* ── SKELETONS ── */
+    .skeleton { background: linear-gradient(90deg, #E0DBD4 25%, #EAE5DE 50%, #E0DBD4 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+    .skeleton-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
+    .skeleton-card { aspect-ratio: 3/4; background: #E0DBD4; }
+    .skeleton-swiper { display: flex; gap: var(--gap); overflow: hidden; padding-bottom: 10px; }
+    .skeleton-cat { flex: 0 0 42vw; aspect-ratio: 3/4; background: #E0DBD4; }
+  </style>
+
+  <!-- Main Styles (Deferred) -->
+  <link rel="stylesheet" href="css/style.css?v=1.2.0" media="print" onload="this.media='all'" />
+</head>
+<body>
+
+  <header class="header" id="header">
+    <div class="header__logo">
+      <svg viewBox="0 0 240 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Van Oude Dingen">
+        <text x="0" y="24" fill="white" font-family="monospace" font-size="16" letter-spacing="2">VAN OUDE DINGEN</text>
+        <text x="0" y="40" fill="rgba(255,255,255,0.7)" font-family="monospace" font-size="10" letter-spacing="1">de mensen die voorbij gaan...</text>
+      </svg>
+    </div>
+    <div class="header__actions">
+      <button class="header__btn header__btn--top" id="btnTop" aria-label="Naar boven" onclick="scrollToTop()" style="opacity:0;pointer-events:none;transition:opacity 0.25s ease;">
+        <svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+      </button>
+      <button class="header__btn" aria-label="Zoeken">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4 4"/></svg>
+      </button>
+      <button class="header__btn" aria-label="Menu" id="menuBtn">
+        <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <section class="hero" id="hero">
+    <video class="hero__media" autoplay muted loop playsinline id="heroVideo" preload="none">
+      <source data-src="hero.mp4" type="video/mp4" />
+    </video>
+    <div class="hero__overlay"></div>
+    <div class="hero__content">
+      <h1 class="hero__title" id="heroTitle">set rotan wiegjes voor <em>een tweeling</em></h1>
+      <button class="hero__cta" id="heroCta">
+        Bekijk item
+        <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+  </section>
+
+  <!-- CATEGORIES SKELETON -->
+  <div class="section-header">
+    <h2 class="section-header__title">Categorieën</h2>
+  </div>
+  <nav class="cat-swiper" id="catSwiper"></nav>
+
+  <!-- PRODUCT GRID -->
+  <div class="section-header" style="padding-top:40px">
+    <h2 class="section-header__title">Recent</h2>
+  </div>
+  <div class="filter-bar-wrap" id="filterBarWrap">
+    <div class="filter-bar" id="filterBar"></div>
+  </div>
+  <main class="product-grid" id="productGrid" role="list"></main>
+
+  <div id="editorialBlock"></div>
+
+  <div style="display:flex; justify-content:center; padding: 32px 20px 48px;">
+    <button id="loadMoreBtn" onclick="loadMore()" style="display:none; align-items:center; gap:10px; padding:13px 28px; background:var(--ink); color:var(--white); font-family:var(--ff-ui); font-size:0.7rem; font-weight:500; letter-spacing:0.14em; text-transform:uppercase; border:none; border-radius:2px; cursor:pointer;">
+      Meer laden
+    </button>
+  </div>
+
+  <div class="panel-overlay" id="panelOverlay" onclick="closePanel()"></div>
+  <aside class="detail-panel" id="detailPanel" role="dialog" aria-modal="true">
+    <div class="detail-panel__header">
+      <button class="detail-panel__close" onclick="closePanel()" aria-label="Sluiten">
+        <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="detail-panel__body">
+      <p class="detail-panel__cat" id="panelCat"></p>
+      <h2 class="detail-panel__title" id="panelTitle"></h2>
+      <p class="detail-panel__price" id="panelPrice"></p>
+      <div class="detail-panel__desc-wrap">
+        <p class="detail-panel__desc" id="panelDesc"></p>
+      </div>
+    </div>
+    <div class="detail-panel__gallery-wrap" id="panelGalleryWrap">
+      <button class="gallery-arrow gallery-arrow--prev hidden" id="galleryPrev" aria-label="Vorige foto">
+        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="detail-panel__gallery" id="panelGallery"></div>
+      <button class="gallery-arrow gallery-arrow--next hidden" id="galleryNext" aria-label="Volgende foto">
+        <svg viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg>
+      </button>
+    </div>
+  </aside>
+
+  <div class="panel-overlay" id="menuOverlay" onclick="closeMenu()"></div>
+  <aside class="menu-drawer" id="menuDrawer" role="dialog" aria-modal="true">
+    <div class="menu-drawer__header">
+      <button class="menu-drawer__close" onclick="closeMenu()" aria-label="Sluiten">
+        <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="menu-drawer__items" id="menuItemsContainer"></div>
+    <div class="menu-drawer__social" id="menuSocialIcons"></div>
+  </aside>
+
+  <div class="panel-overlay" id="pageOverlay" onclick="closePagePanel()"></div>
+  <aside class="page-panel" id="pagePanel" role="dialog" aria-modal="true">
+    <div class="page-panel__header" id="pagePanelHeader">
+      <h2 class="page-panel__title-sticky" id="pagePanelTitleSticky"></h2>
+      <button class="page-panel__close" onclick="closePagePanel()" aria-label="Sluiten">
+        <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="page-panel__content" id="pagePanelContent"></div>
+  </aside>
+
+  <!-- App Logic (Deferred) -->
+  <script src="js/app.js?v=1.2.0" defer></script>
+</body>
+</html>
