@@ -1,6 +1,6 @@
 const API = 'https://vanoudedingen.nl/wp-json/wp/v2';
 const SKIP = ['inspiratie', 'koopjeshoek', 'illustratie'];
-const APP_VERSION = 'v1.3.3';
+const APP_VERSION = 'v1.3.4';
 
 let allPosts = [];
 let cats = {}; // id → category
@@ -586,8 +586,10 @@ window.renderDrawerMenu = () => {
   drawerMenuPages.forEach(p => {
     const img = getImg(p, 'medium') || '';
     const title = getPageTitle(p);
+    const slug = p.slug || '';
     const card = document.createElement('div');
     card.className = 'menu-item-card';
+    card.setAttribute('data-slug', slug);
     card.innerHTML = `<img class="menu-item-card__img skeleton" src="${img}" alt="${title}" loading="lazy" onload="this.classList.remove('skeleton')" /><div class="menu-item-card__overlay"></div><p class="menu-item-card__name">${title}</p>`;
     card.onclick = () => window.openPagePanel(p);
     menuItemsContainer.appendChild(card);
@@ -669,18 +671,18 @@ function pauseMarquee() {
 function startMarquee() {
   // Clear any existing interval
   pauseMarquee();
-  
-  // Start new interval - change message every 6 seconds
+
+  // Start new interval - change message every 5 seconds
   marqueeInterval = setInterval(() => {
     const track = document.getElementById('marqueeTrack');
     const items = track.querySelectorAll('.marquee__item');
     const itemCount = items.length;
-    
+
     currentMarqueeIndex = (currentMarqueeIndex + 1) % itemCount;
-    
+
     // Slide to next message
     track.style.transform = `translateY(-${currentMarqueeIndex * 40}px)`;
-    
+
     // Reset to start after showing all items (with delay for seamless loop)
     if (currentMarqueeIndex >= itemCount - 1) {
       setTimeout(() => {
@@ -690,9 +692,9 @@ function startMarquee() {
         // Force reflow to apply the transition removal
         track.offsetHeight;
         track.style.transition = 'transform 0.5s ease-out';
-      }, 6000);
+      }, 5000);
     }
-  }, 6000);
+  }, 5000);
 }
 
 window.initMarquee = () => {
@@ -748,7 +750,7 @@ window.initMarquee = () => {
 
   async function fetchDrawerMenuPages() {
     try {
-      const slugsToFetch = ['info', 'contact', 'over-mij', 'in-de-media'];
+      const slugsToFetch = ['contact', 'info', 'over-mij', 'in-de-media'];
       const fetches = slugsToFetch.map(slug => fetchFromWP('pages', { slug }).then(r => r.json()));
       const results = await Promise.all(fetches);
       drawerMenuPages = results.flat();

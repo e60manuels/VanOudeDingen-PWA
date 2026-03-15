@@ -2,11 +2,13 @@
 
 /* ── SECTION HEADER ──────────────────────────────────────── */
 .section-header {
-  display: flex; align-items: baseline; justify-content: space-between;
-  padding: 0 16px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 50px;
+  padding: 9px 16px;
 }
 .section-header__title {
   font-family: var(--ff-display); font-size: 1.6rem; font-weight: 400;
+  line-height: 1;
 }
 .section-header__link {
   font-size: 0.68rem; font-weight: 500;
@@ -411,6 +413,9 @@
   color: var(--white);
   text-shadow: 0 1px 3px rgba(0,0,0,0.4);
   pointer-events: none;
+}
+.menu-item-card[data-slug="in-de-media"] .menu-item-card__name {
+  bottom: 28px;
 }
 
 .menu-drawer__social {
