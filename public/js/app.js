@@ -1,6 +1,6 @@
 const API = 'https://vanoudedingen.nl/wp-json/wp/v2';
 const SKIP = ['inspiratie', 'koopjeshoek', 'illustratie'];
-const APP_VERSION = 'v1.3.4';
+const APP_VERSION = 'v1.5.4';
 
 let allPosts = [];
 let cats = {}; // id → category
@@ -450,7 +450,15 @@ window.openPanel = (p) => {
     ).join('');
     gallery.scrollLeft = 0;
     galleryWrap.style.display = 'block';
-    requestAnimationFrame(() => initGalleryArrows(gallery));
+    
+    // Add progress bar
+    const progressBarHtml = `<div class="detail-panel__gallery-progress"><div class="detail-panel__gallery-progress__fill" style="width: ${100 / images.length}%"></div></div>`;
+    galleryWrap.insertAdjacentHTML('beforeend', progressBarHtml);
+    
+    requestAnimationFrame(() => {
+      initGalleryArrows(gallery);
+      initGalleryProgress(gallery, images.length);
+    });
   } else {
     galleryWrap.style.display = 'none';
   }
@@ -467,6 +475,11 @@ window.closePanel = () => {
   document.getElementById('detailPanel').classList.remove('open');
   document.body.style.overflow = '';
   document.getElementById('detailPanel').scrollTop = 0;
+  
+  // Remove progress bar
+  const progressBar = document.querySelector('.detail-panel__gallery-progress');
+  if (progressBar) progressBar.remove();
+  
   panelStack.pop();
 };
 
@@ -491,6 +504,22 @@ function initGalleryArrows(gallery) {
   };
   gallery.addEventListener('scroll', updateArrows, { passive: true });
   updateArrows();
+}
+
+function initGalleryProgress(gallery, totalImages) {
+  const galleryWrap = document.getElementById('panelGalleryWrap');
+  const progressFill = galleryWrap.querySelector('.detail-panel__gallery-progress__fill');
+  if (!progressFill) return;
+  
+  const updateProgress = () => {
+    const imageWidth = gallery.firstElementChild?.offsetWidth || gallery.clientWidth;
+    const currentIndex = Math.round(gallery.scrollLeft / (imageWidth + 2)) + 1;
+    const progressPercent = (currentIndex / totalImages) * 100;
+    progressFill.style.width = `${progressPercent}%`;
+  };
+  
+  gallery.addEventListener('scroll', updateProgress, { passive: true });
+  updateProgress(); // Set initial position
 }
 
 /* ── DRAWER MENU & PAGE PANEL ── */
@@ -525,23 +554,187 @@ window.openPagePanel = (pageData) => {
   pagePanelContent.innerHTML = '';
   const fullTitle = getPageTitle(pageData);
   if (pagePanelTitleSticky) pagePanelTitleSticky.textContent = fullTitle;
-  
+
+  // Check if this is "In de media" page
+  const slug = pageData.slug || '';
+  const isMediaPage = slug === 'in-de-media' || slug.includes('media');
+
   let raw = pageData.content?.rendered || '';
   raw = raw.replace(/<(script|noscript|style)[^>]*>[\s\S]*?<\/\1>/gi, '');
+
+  console.log('openPagePanel:', { slug, isMediaPage, contentLength: raw.length });
+
+  if (isMediaPage) {
+    // Special parsing for "In de media" page
+    renderMediaPage(pagePanelContent, raw, pageData);
+  } else {
+    // Standard parsing for other pages
+    renderStandardPage(pagePanelContent, raw, pageData);
+  }
+
+  pagePanel.classList.add('open');
+  pageOverlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  panelStack.push('page');
+  history.pushState({ panel: 'page' }, '');
   
+  // Add media page class if applicable
+  if (isMediaPage) {
+    pagePanel.classList.add('page-panel--media');
+  }
+  
+  // Reset scroll to top after panel is open (with slight delay for rendering)
+  requestAnimationFrame(() => {
+    const pagePanelEl = document.getElementById('pagePanel');
+    if (pagePanelEl) pagePanelEl.scrollTop = 0;
+  });
+};
+
+function renderMediaPage(container, rawHtml, pageData) {
+  // Use a temporary div to parse HTML
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = rawHtml;
+  
+  let mediaItems = [];
+  let currentItem = null;
+  let hasStartedItem = false;
+  
+  // Get ALL elements in document order
+  const allElements = tempDiv.querySelectorAll('a, img, p, h1, h2, h3, h4, h5, h6, div, br, hr');
+  
+  allElements.forEach(el => {
+    // Check for linked image: <a href="..."><img src="..." /></a>
+    if (el.nodeName === 'A' && el.querySelector('img')) {
+      const img = el.querySelector('img');
+      
+      // Add image to current item if we're in "image collection mode"
+      // (i.e., we haven't seen text content yet for this item)
+      if (currentItem && !hasStartedItem) {
+        // Add to current item's images
+        currentItem.images.push({ src: img.src, alt: img.alt || '', href: el.href });
+        console.log('Added image to current item:', img.src, '(total:', currentItem.images.length, ')');
+      } else {
+        // Save previous item if exists
+        if (currentItem) mediaItems.push(currentItem);
+        
+        // Start new item with this image
+        currentItem = {
+          href: el.href,
+          images: [{ src: img.src, alt: img.alt || '', href: el.href }],
+          title: '',
+          desc: '',
+          date: '',
+          linkText: ''
+        };
+        hasStartedItem = false;
+        console.log('Started new item with image:', img.src);
+      }
+    }
+    // Check for standalone image (not inside a link)
+    else if (el.nodeName === 'IMG' && !el.closest('a')) {
+      if (currentItem && !hasStartedItem) {
+        currentItem.images.push({ src: el.src, alt: el.alt || '', href: null });
+      } else {
+        if (currentItem) mediaItems.push(currentItem);
+        currentItem = {
+          href: null,
+          images: [{ src: el.src, alt: el.alt || '', href: null }],
+          title: '',
+          desc: '',
+          date: '',
+          linkText: ''
+        };
+        hasStartedItem = false;
+      }
+    }
+    // Check for text content
+    else if (['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'DIV'].includes(el.nodeName)) {
+      const text = el.textContent.trim();
+      if (!text || text.length < 2) return;
+      
+      if (currentItem) {
+        // Mark that we've started the text content for this item
+        // After this point, new images will start a new item
+        hasStartedItem = true;
+        
+        // Assign text to current item based on content pattern
+        if (!currentItem.title && text.length < 60 && !text.includes('>>') && !text.match(/^(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s\d{4}$/i)) {
+          currentItem.title = text;
+        } else if (text.match(/^(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s\d{4}$/i)) {
+          // Date pattern: "december 2019"
+          currentItem.date = text;
+        } else if (text.includes('>>')) {
+          currentItem.linkText = text.replace(/^>>\s*/, '>> ');
+        } else if (!currentItem.desc || currentItem.desc.length < 200) {
+          if (!currentItem.desc) currentItem.desc = text;
+          else currentItem.desc += ' ' + text;
+        }
+      }
+    }
+    // Horizontal rule or double <br> might indicate item separator
+    else if (el.nodeName === 'HR') {
+      // Force end of current item
+      if (currentItem) {
+        mediaItems.push(currentItem);
+        currentItem = null;
+        hasStartedItem = false;
+      }
+    }
+  });
+  
+  // Don't forget the last item
+  if (currentItem) mediaItems.push(currentItem);
+  
+  console.log('Parsed media items:', mediaItems.length);
+  mediaItems.forEach((item, i) => {
+    console.log(`Item ${i + 1}:`, item.title, '- Images:', item.images?.length || 0);
+  });
+  
+  // If no items found, show raw content as fallback
+  if (mediaItems.length === 0) {
+    console.log('No media items found, showing raw content');
+    container.innerHTML = `<div class="page-panel__body">${rawHtml}</div>`;
+    return;
+  }
+  
+  // Render media items
+  container.innerHTML = mediaItems.map((item, itemIndex) => `
+    <div class="media-item">
+      ${item.images && item.images.length > 0 ? `
+        <div class="media-item__link-wrap" style="position: relative;" onclick="openMediaModal(${itemIndex})">
+          <img class="media-item__img skeleton" src="${item.images[0].src}" alt="${item.images[0].alt}" loading="lazy" onload="this.classList.remove('skeleton')" />
+          ${item.images.length > 1 ? `<span class="media-item__image-count">${item.images.length}</span>` : ''}
+        </div>
+      ` : ''}
+      <div class="media-item__content">
+        ${item.title ? `<p class="media-item__title">${item.title}</p>` : ''}
+        ${item.desc ? `<p class="media-item__desc">${item.desc}</p>` : ''}
+        ${item.date ? `<p class="media-item__date">${item.date}</p>` : ''}
+        ${item.linkText ? `<p class="media-item__link-text">${item.linkText}</p>` : ''}
+      </div>
+    </div>
+  `).join('');
+  
+  // Store media items globally for modal access
+  window.currentMediaItems = mediaItems;
+}
+
+function renderStandardPage(container, rawHtml, pageData) {
   const galleryItems = [];
-  raw = raw.replace(/<a\s[^>]*href=["']([^"'#][^"']*?)["'][^>]*>\s*<img[^>]+src=["']([^"']+)["'][^>]*?(?:alt=["']([^"']*)["'])?[^>]*?>\s*<\/a>/gi, (_, href, src, alt) => { galleryItems.push({ href, src, alt: alt || '' }); return ''; });
-  raw = raw.replace(/<img[^>]+src=["']([^"']+)["'][^>]*?(?:alt=["']([^"']*)["'])?[^>]*?>/gi, (_, src, alt) => { galleryItems.push({ href: null, src, alt: alt || '' }); return ''; });
-  raw = raw.replace(/<\/(p|div|li|h[1-6]|blockquote)>/gi, '\n\n');
-  raw = raw.replace(/<br[^>]*>/gi, '\n');
-  raw = raw.replace(/<a\s[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi, (_, href, inner) => {
+  rawHtml = rawHtml.replace(/<(script|noscript|style)[^>]*>[\s\S]*?<\/\1>/gi, '');
+  
+  rawHtml = rawHtml.replace(/<a\s[^>]*href=["']([^"'#][^"']*?)["'][^>]*>\s*<img[^>]+src=["']([^"']+)["'][^>]*?(?:alt=["']([^"']*)["'])?[^>]*?>\s*<\/a>/gi, (_, href, src, alt) => { galleryItems.push({ href, src, alt: alt || '' }); return ''; });
+  rawHtml = rawHtml.replace(/<img[^>]+src=["']([^"']+)["'][^>]*?(?:alt=["']([^"']*)["'])?[^>]*?>/gi, (_, src, alt) => { galleryItems.push({ href: null, src, alt: alt || '' }); return ''; });
+  rawHtml = rawHtml.replace(/<\/(p|div|li|h[1-6]|blockquote)>/gi, '\n\n');
+  rawHtml = rawHtml.replace(/<br[^>]*>/gi, '\n');
+  rawHtml = rawHtml.replace(/<a\s[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi, (_, href, inner) => {
     const label = inner.replace(/<[^>]+>/g, '').trim();
     return label ? `\u200B__H__${href}__L__${label}__E__\u200B` : '';
   });
-  raw = stripHtml(raw);
-  raw = decodeHtmlEntities(raw);
+  rawHtml = stripHtml(rawHtml);
+  rawHtml = decodeHtmlEntities(rawHtml);
 
-  const paragraphs = raw.split(/\n\n+/).map(s => s.trim()).filter(Boolean);
+  const paragraphs = rawHtml.split(/\n\n+/).map(s => s.trim()).filter(Boolean);
   const cleanContent = paragraphs.map(chunk => {
     chunk = chunk.replace(/\u200B__H__([^_]+)__L__([^_]+)__E__\u200B/g, (_, href, label) => `<a href="${href}" target="_blank" rel="noopener" class="page-panel__link">${label}</a>`);
     return `<p>${chunk.replace(/\n/g, '<br>')}</p>`;
@@ -562,20 +755,120 @@ window.openPagePanel = (pageData) => {
     if (feat) heroHtml = `<div class="page-panel__hero-wrap"><img src="${feat}" alt="${getPageTitle(pageData)}" class="page-panel__hero-img" /></div>`;
   }
 
-  pagePanelContent.innerHTML = heroHtml + galleryHtml + `<div class="page-panel__body">${cleanContent}</div>`;
-  pagePanel.classList.add('open');
-  pageOverlay.classList.add('open');
-  document.body.style.overflow = 'hidden';
-  panelStack.push('page');
-  history.pushState({ panel: 'page' }, '');
-};
+  container.innerHTML = heroHtml + galleryHtml + `<div class="page-panel__body">${cleanContent}</div>`;
+}
 
 window.closePagePanel = () => {
-  document.getElementById('pagePanel').classList.remove('open');
+  const pagePanel = document.getElementById('pagePanel');
+  pagePanel.classList.remove('open');
+  pagePanel.classList.remove('page-panel--media'); // Remove media-specific class
   document.getElementById('pageOverlay').classList.remove('open');
   document.body.style.overflow = '';
+  
+  // Reset scroll position when closing
+  pagePanel.scrollTop = 0;
+  
+  // Optional: Clear content to ensure fresh load next time
+  // document.getElementById('pagePanelContent').innerHTML = '';
+  
   panelStack.pop();
 };
+
+/* ── MEDIA MODAL (SCROLL BOOK) ── */
+
+let currentMediaIndex = 0;
+let currentMediaImages = [];
+
+window.openMediaModal = (itemIndex) => {
+  const mediaItems = window.currentMediaItems;
+  if (!mediaItems || !mediaItems[itemIndex]) return;
+  
+  const item = mediaItems[itemIndex];
+  if (!item.images || item.images.length === 0) return;
+  
+  currentMediaImages = item.images;
+  currentMediaIndex = 0;
+  
+  const modal = document.getElementById('mediaModal');
+  const overlay = document.getElementById('mediaModalOverlay');
+  const gallery = document.getElementById('mediaModalGallery');
+  const counter = document.getElementById('mediaModalCounter');
+  
+  // Render images
+  gallery.innerHTML = item.images.map((img, i) => `
+    <div class="media-modal__img-wrap">
+      <img class="media-modal__img" src="${img.src}" alt="${img.alt || ''}" loading="lazy" />
+    </div>
+  `).join('');
+  
+  // Update counter
+  counter.textContent = `1 / ${item.images.length}`;
+  
+  // Open modal
+  modal.classList.add('open');
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  
+  // Initialize arrows
+  requestAnimationFrame(() => {
+    initMediaModalArrows(gallery);
+  });
+  
+  // Add to panel stack
+  panelStack.push('media-modal');
+  history.pushState({ panel: 'media-modal' }, '');
+};
+
+window.closeMediaModal = () => {
+  const modal = document.getElementById('mediaModal');
+  const overlay = document.getElementById('mediaModalOverlay');
+  
+  modal.classList.remove('open');
+  overlay.classList.remove('open');
+  document.body.style.overflow = '';
+  
+  // Clear gallery
+  const gallery = document.getElementById('mediaModalGallery');
+  if (gallery) gallery.innerHTML = '';
+  
+  panelStack.pop();
+};
+
+function initMediaModalArrows(gallery) {
+  const prev = document.getElementById('mediaModalPrev');
+  const next = document.getElementById('mediaModalNext');
+  const counter = document.getElementById('mediaModalCounter');
+  
+  if (!prev || !next || !counter) return;
+  
+  const updateArrows = () => {
+    const imgW = gallery.firstElementChild?.offsetWidth || gallery.clientWidth;
+    const currentIndex = Math.round(gallery.scrollLeft / (imgW + 2)) + 1;
+    const totalImages = currentMediaImages.length;
+    
+    counter.textContent = `${currentIndex} / ${totalImages}`;
+    
+    const atStart = gallery.scrollLeft <= 4;
+    const atEnd = gallery.scrollLeft >= gallery.scrollWidth - gallery.clientWidth - 4;
+    const multi = gallery.children.length > 1;
+    
+    prev.classList.toggle('hidden', !multi || atStart);
+    next.classList.toggle('hidden', !multi || atEnd);
+  };
+  
+  prev.onclick = () => {
+    const imgW = gallery.firstElementChild?.offsetWidth || gallery.clientWidth;
+    gallery.scrollBy({ left: -(imgW + 2), behavior: 'smooth' });
+  };
+  
+  next.onclick = () => {
+    const imgW = gallery.firstElementChild?.offsetWidth || gallery.clientWidth;
+    gallery.scrollBy({ left: imgW + 2, behavior: 'smooth' });
+  };
+  
+  gallery.addEventListener('scroll', updateArrows, { passive: true });
+  updateArrows();
+}
 
 window.renderDrawerMenu = () => {
   const menuItemsContainer = document.getElementById('menuItemsContainer');
@@ -742,6 +1035,303 @@ window.initMarquee = () => {
   startMarquee();
 };
 
+/* ── SEARCH FUNCTIONALITY ── */
+
+let searchTimeout = null;
+let keyboardTimeout = null;
+let searchCategory = null; // null = alle categorieën
+let allCategories = [];
+
+window.toggleSearch = () => {
+  const searchBar = document.getElementById('searchBar');
+  const searchResultsWrap = document.getElementById('searchResultsWrap');
+  const searchInput = document.getElementById('searchInput');
+  
+  if (searchBar.classList.contains('open')) {
+    window.closeSearch();
+  } else {
+    searchBar.classList.add('open');
+    searchResultsWrap.classList.add('open');
+    searchInput.focus();
+    document.body.style.overflow = 'hidden';
+    panelStack.push('search');
+    history.pushState({ panel: 'search' }, '');
+  }
+};
+
+window.closeSearch = () => {
+  const searchBar = document.getElementById('searchBar');
+  const searchResultsWrap = document.getElementById('searchResultsWrap');
+  const searchInput = document.getElementById('searchInput');
+  const searchResults = document.getElementById('searchResults');
+  
+  searchBar.classList.remove('open');
+  searchResultsWrap.classList.remove('open');
+  searchInput.value = '';
+  searchResults.innerHTML = '';
+  document.body.style.overflow = '';
+  
+  // Close category dropdown
+  const dropdown = document.getElementById('searchCategoryDropdown');
+  const toggle = document.getElementById('searchCategoryToggle');
+  dropdown.classList.remove('open');
+  toggle.classList.remove('active');
+  
+  panelStack.pop();
+};
+
+window.renderSearchCategoryDropdown = (catList) => {
+  const dropdown = document.getElementById('searchCategoryDropdown');
+  if (!dropdown) return;
+  
+  // Filter categories like the main swiper
+  const visible = catList.filter(c => !SKIP.includes(c.slug) && c.count > 0);
+  
+  dropdown.innerHTML = `
+    <button class="search-bar__dropdown-item active" data-id="">Alle categorieën</button>
+    ${visible.map(c => `
+      <button class="search-bar__dropdown-item" data-id="${c.id}">${c.name}</button>
+    `).join('')}
+  `;
+  
+  // Add click handlers
+  dropdown.querySelectorAll('.search-bar__dropdown-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      const catId = e.target.dataset.id;
+      const catName = e.target.textContent;
+      window.selectCategory(catId, catName);
+    });
+  });
+};
+
+window.selectCategory = (catId, catName) => {
+  searchCategory = catId || null;
+  
+  // Update active state
+  document.querySelectorAll('.search-bar__dropdown-item').forEach(item => {
+    item.classList.toggle('active', item.dataset.id === (catId || ''));
+  });
+  
+  // Close dropdown
+  const dropdown = document.getElementById('searchCategoryDropdown');
+  const toggle = document.getElementById('searchCategoryToggle');
+  dropdown.classList.remove('open');
+  toggle.classList.remove('active');
+  
+  // Re-search if there's a query
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput && searchInput.value.trim().length >= 2) {
+    window.performSearch(searchInput.value.trim());
+  }
+};
+
+window.toggleSearchCategoryDropdown = () => {
+  const dropdown = document.getElementById('searchCategoryDropdown');
+  const toggle = document.getElementById('searchCategoryToggle');
+  dropdown.classList.toggle('open');
+  toggle.classList.toggle('active');
+};
+
+window.handleSearchInput = (e) => {
+  const query = e.target.value.trim();
+  
+  // Clear keyboard timeout when user is typing
+  if (keyboardTimeout) clearTimeout(keyboardTimeout);
+  
+  // Clear previous search timeout
+  if (searchTimeout) clearTimeout(searchTimeout);
+  
+  // Hide results if query is too short
+  if (query.length < 2) {
+    document.getElementById('searchResults').innerHTML = '';
+    return;
+  }
+  
+  // Debounce search
+  searchTimeout = setTimeout(() => {
+    window.performSearch(query);
+  }, 300);
+};
+
+window.handleSearchKeydown = (e) => {
+  // Hide keyboard on Enter key
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    window.hideKeyboard();
+  }
+};
+
+window.hideKeyboard = () => {
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) {
+    searchInput.blur();
+  }
+};
+
+window.performSearch = async (query) => {
+  const searchResults = document.getElementById('searchResults');
+  searchResults.innerHTML = '<div class="search-loading">Zoeken...</div>';
+  
+  // Clear keyboard timeout when search starts
+  if (keyboardTimeout) clearTimeout(keyboardTimeout);
+  
+  try {
+    // Build search endpoint URL
+    const params = new URLSearchParams({
+      search: query,
+      per_page: 20,
+      _embed: 'wp:featuredmedia'
+    });
+    
+    // Add category filter if selected
+    if (searchCategory) {
+      params.append('categories', searchCategory);
+    }
+    
+    const response = await fetch(`${API}/posts?${params.toString()}`);
+    const posts = await response.json();
+    
+    if (posts.length === 0) {
+      searchResults.innerHTML = `
+        <div class="search-no-results">
+          Geen resultaten voor "${query}"
+        </div>
+      `;
+      // Hide keyboard after showing no results
+      keyboardTimeout = setTimeout(window.hideKeyboard, 100);
+      return;
+    }
+    
+    // Filter out skipped categories
+    const filteredPosts = posts.filter(p => {
+      if (!p.categories) return true;
+      return !p.categories.some(id => SKIP.includes(cats[id]?.slug));
+    });
+    
+    if (filteredPosts.length === 0) {
+      searchResults.innerHTML = `
+        <div class="search-no-results">
+          Geen resultaten voor "${query}"
+        </div>
+      `;
+      // Hide keyboard after showing no results
+      keyboardTimeout = setTimeout(window.hideKeyboard, 100);
+      return;
+    }
+    
+    // Render results
+    searchResults.innerHTML = '';
+    filteredPosts.forEach(p => {
+      const card = createSearchResultCard(p);
+      searchResults.appendChild(card);
+    });
+    
+    // Hide keyboard after showing results with delay
+    keyboardTimeout = setTimeout(window.hideKeyboard, 5000);
+    
+  } catch (e) {
+    console.error('Search error:', e);
+    searchResults.innerHTML = `
+      <div class="search-no-results">
+        Er ging iets mis bij het zoeken
+      </div>
+    `;
+    keyboardTimeout = setTimeout(window.hideKeyboard, 100);
+  }
+};
+
+function createSearchResultCard(p) {
+  const img = getImg(p, 'medium_large') || '';
+  const catName = getCatName(p) || '';
+  const prodTitle = p.title?.rendered || '';
+  const prodPrice = price(p.content?.rendered) || '';
+  
+  const card = document.createElement('article');
+  card.className = 'product-card search-results__item fade-up';
+  card.setAttribute('role', 'listitem');
+  card.onclick = () => {
+    openPanel(p);
+  };
+  
+  card.innerHTML = `
+    <div class="product-card__img-wrap">
+      <img class="product-card__img skeleton"
+           src="${img}" alt="${prodTitle}" loading="lazy"
+           onload="this.classList.remove('skeleton')" />
+    </div>
+    <div class="product-card__info">
+      ${catName ? `<p class="product-card__cat">${catName}</p>` : ''}
+      <p class="product-card__name">${prodTitle}</p>
+      ${prodPrice ? `<p class="product-card__price">${prodPrice}</p>` : ''}
+    </div>
+    <div class="product-card__overlay">
+      ${catName ? `<p class="product-card__overlay-cat">${catName}</p>` : ''}
+      <p class="product-card__overlay-title">${prodTitle}</p>
+      <p class="product-card__overlay-desc">${stripHtml(prodTitle)}</p>
+      ${prodPrice ? `<p class="product-card__overlay-price">${prodPrice}</p>` : ''}
+    </div>`;
+  
+  io.observe(card);
+  return card;
+}
+
+window.initSearch = () => {
+  const searchBtn = document.querySelector('.header__btn[aria-label="Zoeken"]');
+  const searchClose = document.getElementById('searchClose');
+  const searchInput = document.getElementById('searchInput');
+  const searchCategoryToggle = document.getElementById('searchCategoryToggle');
+  const searchResultsWrap = document.getElementById('searchResultsWrap');
+  const searchResults = document.getElementById('searchResults');
+  
+  // Open search on search icon click
+  if (searchBtn) {
+    searchBtn.onclick = window.toggleSearch;
+  }
+  
+  // Close search on X button click
+  if (searchClose) {
+    searchClose.onclick = window.closeSearch;
+  }
+  
+  // Handle input
+  if (searchInput) {
+    searchInput.addEventListener('input', window.handleSearchInput);
+    searchInput.addEventListener('keydown', window.handleSearchKeydown);
+  }
+  
+  // Toggle category dropdown
+  if (searchCategoryToggle) {
+    searchCategoryToggle.onclick = window.toggleSearchCategoryDropdown;
+  }
+  
+  // Click on results wrap (background) closes search
+  if (searchResultsWrap) {
+    searchResultsWrap.addEventListener('click', (e) => {
+      if (e.target === searchResultsWrap) {
+        window.closeSearch();
+      }
+    });
+  }
+  
+  // Scroll in results hides keyboard
+  if (searchResults) {
+    searchResults.addEventListener('scroll', () => {
+      if (keyboardTimeout) clearTimeout(keyboardTimeout);
+      keyboardTimeout = setTimeout(window.hideKeyboard, 500);
+    }, { passive: true });
+  }
+  
+  // Click outside search bar closes category dropdown
+  document.addEventListener('click', (e) => {
+    const dropdown = document.getElementById('searchCategoryDropdown');
+    const toggle = document.getElementById('searchCategoryToggle');
+    if (dropdown && !dropdown.contains(e.target) && !toggle.contains(e.target)) {
+      dropdown.classList.remove('open');
+      toggle.classList.remove('active');
+    }
+  });
+};
+
 /* ── INIT ── */
 
 (async () => {
@@ -765,6 +1355,8 @@ window.initMarquee = () => {
         if (topPanel === 'detail') closePanel();
         else if (topPanel === 'page') window.closePagePanel();
         else if (topPanel === 'menu') window.closeMenu();
+        else if (topPanel === 'search') window.closeSearch();
+        else if (topPanel === 'media-modal') window.closeMediaModal();
       }
     }
   });
@@ -777,6 +1369,8 @@ window.initMarquee = () => {
       if (topPanel === 'detail') closePanel();
       else if (topPanel === 'page') window.closePagePanel();
       else if (topPanel === 'menu') window.closeMenu();
+      else if (topPanel === 'search') window.closeSearch();
+      else if (topPanel === 'media-modal') window.closeMediaModal();
     } else {
       // We're at home state - check if this is a second back press
       const now = Date.now();
@@ -802,6 +1396,10 @@ window.initMarquee = () => {
     const initialPosts = await fetchPosts();
     renderFilters(catList);
     await renderSwiper(catList, initialPosts);
+    
+    // Initialize search category dropdown
+    window.renderSearchCategoryDropdown(catList);
+    window.initSearch();
 
     // 3. Toon het Product Grid
     await renderGrid(initialPosts, false);
