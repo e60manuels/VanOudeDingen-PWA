@@ -1,0 +1,22 @@
+(index):1 <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes">
+
+app.js?v=1.3.2:327 [Intervention] Images loaded lazily and replaced with placeholders. Load events are deferred. See https://go.microsoft.com/fwlink/?linkid=2048113
+app.js?v=1.3.2:719 initMarquee called
+app.js?v=1.3.2:723 Attaching click handler to marquee item: over-mij
+app.js?v=1.3.2:723 Attaching click handler to marquee item: belgie
+app.js?v=1.3.2:723 Attaching click handler to marquee item: vitrine
+app.js?v=1.3.2:740 Dropdown elements: <div class=​"marquee__dropdown" id=​"marqueeDropdown" style=​"background:​ rgba(255,0,0,0.5)​ !important;​">​…​</div>​ <div class=​"marquee__dropdown-content" id=​"marqueeDropdownContent" style=​"min-height:​ 60px;​ background:​ rgba(255, 0, 0, 0.5)​ !important;​ cursor:​ pointer;​">​</div>​
+app.js?v=1.3.2:741 marqueeLinks: {over-mij: ƒ, belgie: ƒ, vitrine: ƒ}
+(index):1 The resource https://vanoudedingen.nl/wp-json/wp/v2/posts?per_page=24&page=1&_embed=wp:featuredmedia&_fields=id,slug,title,categories,content,_links,_embedded,type,link was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally.
+app.js?v=1.3.2:725 Marquee item clicked: over-mij
+app.js?v=1.3.2:634 openDropdown called with key: over-mij
+app.js?v=1.3.2:635 Elements found: {dropdown: div#marqueeDropdown.marquee__dropdown, content: div#marqueeDropdownContent.marquee__dropdown-content, wrap: div#marqueeWrap.marquee-wrap}
+app.js?v=1.3.2:636 Dropdown classList before: marquee__dropdown
+app.js?v=1.3.2:647 Setting content text: Marlou Manuels is eigenaresse van Van Oude Dingen. Met passie voor vintage en een oog voor kwaliteit, selecteert zij persoonlijk alle items. Elk stuk heeft een verhaal en wordt met zorg gepresenteerd in onze showroom in Den Haag.
+app.js?v=1.3.2:649 Content textContent after set: Marlou Manuels is eigenaresse van Van Oude Dingen. Met passie voor vintage en een oog voor kwaliteit, selecteert zij persoonlijk alle items. Elk stuk heeft een verhaal en wordt met zorg gepresenteerd in onze showroom in Den Haag.
+app.js?v=1.3.2:650 Content offsetHeight: 0
+app.js?v=1.3.2:652 Adding "open" class to dropdown...
+app.js?v=1.3.2:654 Dropdown classList after add: marquee__dropdown open
+app.js?v=1.3.2:656 Adding "dropdown-open" class to wrap...
+app.js?v=1.3.2:658 Wrap classList after add: marquee-wrap dropdown-open
+app.js?v=1.3.2:663 Dropdown opened, currentDropdownKey: over-mij

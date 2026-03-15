@@ -1,6 +1,6 @@
 const API = 'https://vanoudedingen.nl/wp-json/wp/v2';
 const SKIP = ['inspiratie', 'koopjeshoek', 'illustratie'];
-const APP_VERSION = 'v1.2.9';
+const APP_VERSION = 'v1.3.3';
 
 let allPosts = [];
 let cats = {}; // id → category
@@ -600,6 +600,146 @@ window.renderDrawerMenu = () => {
     <a href="https://pinterest.com/vanoudedingen" target="_blank" rel="noopener" aria-label="Pinterest"><svg viewBox="0 0 24 24"><path d="M12.16 2C6.4 2 2 6.13 2 11.13c0 2.24.75 4.31 2.05 5.92.2.24.28.56.23.87l-.36 1.8c-.08.4.3.74.7.6l1.7-.58c.28-.1.59-.04.85.12 1.63 1.05 3.5 1.62 5.43 1.62 5.76 0 10.16-4.13 10.16-9.13C22.32 6.13 17.92 2 12.16 2z"/></svg></a>`;
 };
 
+/* ── MARQUEE DROPDOWN ── */
+
+const marqueeContent = {
+  'over-mij': 'Marlou Manuels is eigenaresse van Van Oude Dingen. Met passie voor vintage en een oog voor kwaliteit, selecteert zij persoonlijk alle items. Elk stuk heeft een verhaal en wordt met zorg gepresenteerd in onze showroom in Den Haag.',
+  'belgie': 'Kleine artikelen (tot 10 kilo) worden verzonden via PostNL met Track & Trace. Grote artikelen worden bezorgd door onze vaste bezorger. Wij bezorgen ook in Vlaanderen op afspraak. Neem contact op voor een indicatie van de bezorgkosten.',
+  'vitrine': 'Massief eiken vitrinekastje in Amsterdamse School stijl uit de jaren 1920. Voorzien van twee verstelbare houten planken en originele beslag. Afmetingen: H 120 × B 80 × D 33 cm. Prijs: €620. Thuisbezorging in Nederland en België mogelijk.'
+};
+
+const marqueeLinks = {
+  'over-mij': () => {
+    const page = drawerMenuPages.find(p => p.slug === 'over-mij');
+    if (page) window.openPagePanel(page);
+  },
+  'belgie': () => {
+    const page = drawerMenuPages.find(p => p.slug === 'info');
+    if (page) window.openPagePanel(page);
+  },
+  'vitrine': () => {
+    window.location.href = 'https://vanoudedingen.nl/20178-2/';
+  }
+};
+
+let currentDropdownKey = null;
+let marqueeInterval = null;
+let currentMarqueeIndex = 0;
+
+window.openDropdown = (key) => {
+  const dropdown = document.getElementById('marqueeDropdown');
+  const content = document.getElementById('marqueeDropdownContent');
+
+  if (currentDropdownKey === key) {
+    window.closeDropdown();
+    return;
+  }
+
+  document.querySelectorAll('.marquee__item').forEach(btn => btn.classList.remove('active'));
+
+  currentDropdownKey = key;
+  content.textContent = marqueeContent[key];
+  dropdown.classList.add('open');
+
+  const activeBtn = document.querySelector(`.marquee__item[data-key="${key}"]`);
+  if (activeBtn) activeBtn.classList.add('active');
+
+  // Pause scrolling when dropdown is open
+  pauseMarquee();
+};
+
+window.closeDropdown = () => {
+  const dropdown = document.getElementById('marqueeDropdown');
+  
+  dropdown.classList.remove('open');
+  document.querySelectorAll('.marquee__item').forEach(btn => btn.classList.remove('active'));
+  currentDropdownKey = null;
+
+  // Resume scrolling
+  startMarquee();
+};
+
+function pauseMarquee() {
+  if (marqueeInterval) {
+    clearInterval(marqueeInterval);
+    marqueeInterval = null;
+  }
+}
+
+function startMarquee() {
+  // Clear any existing interval
+  pauseMarquee();
+  
+  // Start new interval - change message every 6 seconds
+  marqueeInterval = setInterval(() => {
+    const track = document.getElementById('marqueeTrack');
+    const items = track.querySelectorAll('.marquee__item');
+    const itemCount = items.length;
+    
+    currentMarqueeIndex = (currentMarqueeIndex + 1) % itemCount;
+    
+    // Slide to next message
+    track.style.transform = `translateY(-${currentMarqueeIndex * 40}px)`;
+    
+    // Reset to start after showing all items (with delay for seamless loop)
+    if (currentMarqueeIndex >= itemCount - 1) {
+      setTimeout(() => {
+        currentMarqueeIndex = 0;
+        track.style.transition = 'none';
+        track.style.transform = 'translateY(0)';
+        // Force reflow to apply the transition removal
+        track.offsetHeight;
+        track.style.transition = 'transform 0.5s ease-out';
+      }, 6000);
+    }
+  }, 6000);
+}
+
+window.initMarquee = () => {
+  // Add click handlers to marquee items
+  document.querySelectorAll('.marquee__item').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const key = btn.dataset.key;
+      window.openDropdown(key);
+    });
+
+    // Pause on hover
+    btn.addEventListener('mouseenter', pauseMarquee);
+    btn.addEventListener('mouseleave', startMarquee);
+  });
+
+  // Click on dropdown content opens the link
+  const dropdown = document.getElementById('marqueeDropdown');
+  const dropdownContent = document.getElementById('marqueeDropdownContent');
+  
+  if (dropdown && dropdownContent) {
+    dropdown.addEventListener('click', (e) => {
+      // Ignore clicks on close button
+      if (e.target.closest('.marquee__dropdown-close')) return;
+      
+      // Clicking anywhere in dropdown opens the link
+      if (currentDropdownKey && marqueeLinks[currentDropdownKey]) {
+        e.stopPropagation();
+        marqueeLinks[currentDropdownKey]();
+      }
+    });
+    
+    dropdownContent.style.cursor = 'pointer';
+  }
+
+  // Click outside closes dropdown
+  document.addEventListener('click', (e) => {
+    const dropdown = document.getElementById('marqueeDropdown');
+    if (dropdown && !dropdown.contains(e.target)) {
+      window.closeDropdown();
+    }
+  });
+
+  // Start the marquee scrolling
+  startMarquee();
+};
+
 /* ── INIT ── */
 
 (async () => {
@@ -681,6 +821,9 @@ window.renderDrawerMenu = () => {
 
     // 5. Push initial home state for back navigation protection
     history.replaceState({ page: 'home' }, '');
+
+    // 6. Initialize marquee
+    window.initMarquee();
 
   } catch (e) {
     console.error('Initialization error:', e);

@@ -75,6 +75,45 @@
 
     @keyframes fadeUp { to { opacity: 1; transform: none; } }
 
+    /* ── MARQUEE ── */
+    .marquee-wrap { position: relative; background: transparent; overflow: hidden; }
+    .marquee { height: 40px; overflow: hidden; }
+    .marquee__track { display: flex; flex-direction: column; transition: transform 0.5s ease-out; }
+    .marquee__item {
+      display: flex; align-items: center; justify-content: center;
+      height: 40px; padding: 0 16px;
+      background: transparent; border: none;
+      color: var(--ink-soft); font-family: var(--ff-ui);
+      font-size: 0.75rem; font-weight: 400; letter-spacing: 0.02em;
+      cursor: pointer; white-space: nowrap;
+    }
+    .marquee__item:hover { color: var(--ink); }
+    .marquee__arrow { margin-left: 6px; font-size: 0.6rem; opacity: 0.7; transition: transform 0.2s; }
+    .marquee__item.active .marquee__arrow { transform: rotate(180deg); opacity: 1; }
+    .marquee__dropdown {
+      position: relative;
+      background: var(--ink);
+      padding: 16px 20px;
+      display: none;
+      z-index: 10;
+      cursor: pointer;
+    }
+    .marquee__dropdown.open { display: block; }
+    .marquee__dropdown-content {
+      color: var(--white); font-family: var(--ff-ui);
+      font-size: 0.85rem; line-height: 1.6;
+      padding-right: 24px;
+      min-height: 60px;
+    }
+    .marquee__dropdown-close {
+      position: absolute; top: 12px; right: 12px;
+      width: 24px; height: 24px;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,0.1); border: none; border-radius: 50%;
+      color: var(--white); font-size: 1rem; cursor: pointer;
+    }
+    .marquee__dropdown-close:hover { background: rgba(255,255,255,0.2); }
+
     /* ── SKELETONS ── */
     .skeleton { background: linear-gradient(90deg, #E0DBD4 25%, #EAE5DE 50%, #E0DBD4 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; }
     @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
@@ -86,7 +125,7 @@
   </style>
 
   <!-- Main Styles (Deferred) -->
-  <link rel="stylesheet" href="css/style.css?v=1.2.9" media="print" onload="this.media='all'" />
+  <link rel="stylesheet" href="css/style.css?v=1.3.3" media="print" onload="this.media='all'" />
 </head>
 <body>
 
@@ -123,6 +162,29 @@
       </button>
     </div>
   </section>
+
+  <!-- MARQUEE ANNOUNCEMENT BAR -->
+  <div class="marquee-wrap" id="marqueeWrap">
+    <div class="marquee" id="marquee">
+      <div class="marquee__track" id="marqueeTrack">
+        <button class="marquee__item" data-key="over-mij">
+          Over mij <span class="marquee__arrow">▼</span>
+        </button>
+        <button class="marquee__item" data-key="belgie">
+          Wij bezorgen ook in België (Vlaanderen) <span class="marquee__arrow">▼</span>
+        </button>
+        <button class="marquee__item" data-key="vitrine">
+          Nieuw: vitrinekastje... — €620 <span class="marquee__arrow">▼</span>
+        </button>
+      </div>
+    </div>
+  </div>
+  <div class="marquee__dropdown" id="marqueeDropdown">
+    <div class="marquee__dropdown-content" id="marqueeDropdownContent"></div>
+    <button class="marquee__dropdown-close" onclick="closeDropdown()" aria-label="Sluiten">
+      <span>×</span>
+    </button>
+  </div>
 
   <!-- CATEGORIES SKELETON -->
   <div class="section-header">
@@ -196,6 +258,6 @@
   </aside>
 
   <!-- App Logic (Deferred) -->
-  <script src="js/app.js?v=1.2.9" defer></script>
+  <script src="js/app.js?v=1.3.3" defer></script>
 </body>
 </html>
