@@ -243,13 +243,13 @@
 /* ── FILTER BAR ──────────────────────────────────────────── */
 .filter-bar-wrap {
   position: sticky;
-  top: 0;
+  top: calc(var(--header-h) + 20px);
   z-index: 90;
   background: rgba(245, 242, 237, 0.96);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid rgba(28,25,23,0.07);
-  transition: top 0.3s ease, box-shadow 0.2s ease;
+  transition: box-shadow 0.2s ease;
 }
 .filter-bar-wrap.pinned {
   box-shadow: 0 2px 14px rgba(28,25,23,0.09);
@@ -1019,7 +1019,7 @@
 @media (min-width: 1024px) {
   body { max-width: 1440px; margin: 0 auto; }
   .header { left: 50%; right: auto; transform: translateX(-50%); max-width: 1400px; width: calc(100% - 24px); }
-  .header.hidden { transform: translateX(-50%) translateY(calc(-100% - 20px)); }
+  .filter-bar-wrap { max-width: 1400px; margin: 0 auto; }
   .hero { height: 70vh; min-height: 450px; max-height: 650px; }
   .product-grid { grid-template-columns: repeat(4, 1fr); }
   .product-card--wide { grid-column: span 2; }

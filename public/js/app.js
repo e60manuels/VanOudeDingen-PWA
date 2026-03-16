@@ -1,6 +1,6 @@
 const API = 'https://vanoudedingen.nl/wp-json/wp/v2';
 const SKIP = ['inspiratie', 'koopjeshoek', 'illustratie'];
-const APP_VERSION = 'v1.5.4';
+const APP_VERSION = 'v1.5.6';
 
 let allPosts = [];
 let cats = {}; // id → category
@@ -78,22 +78,12 @@ let prevY = 0;
 window.addEventListener('scroll', () => {
   const y = window.scrollY;
   header.classList.toggle('scrolled', y > 20);
-  const fw = document.getElementById('filterBarWrap');
-  if (fw) {
-    const fwTop = fw.getBoundingClientRect().top;
-    fw.classList.toggle('pinned', fwTop <= 69);
-  }
+  
+  // Toon "naar boven" knop
   if (btnTop) {
     const show = y > window.innerHeight * 0.6;
     btnTop.style.opacity = show ? '1' : '0';
     btnTop.style.pointerEvents = show ? 'auto' : 'none';
-  }
-  if (y > prevY + 10 && y > 100) {
-    header.classList.add('hidden');
-    if (fw) fw.style.top = '0px';
-  } else if (y < prevY - 6) {
-    header.classList.remove('hidden');
-    if (fw) fw.style.top = '68px';
   }
   prevY = y;
 }, { passive: true });
@@ -177,7 +167,7 @@ async function renderHero() {
     if (posts && posts.length > 0) {
       const p = posts[0];
       document.getElementById('heroCta').onclick = () => openPanel(p);
-      
+
       // Set Hero Poster
       const posterUrl = getImg(p, 'large');
       if (posterUrl && heroVid) {
@@ -912,8 +902,16 @@ const marqueeLinks = {
     const page = drawerMenuPages.find(p => p.slug === 'info');
     if (page) window.openPagePanel(page);
   },
-  'vitrine': () => {
-    window.location.href = 'https://vanoudedingen.nl/20178-2/';
+  'vitrine': async () => {
+    try {
+      const res = await fetchFromWP('posts', { slug: '20178-2' });
+      const posts = await res.json();
+      if (posts && posts.length > 0) {
+        openPanel(posts[0]);
+      }
+    } catch (e) {
+      console.error('Error fetching vitrine product:', e);
+    }
   }
 };
 
@@ -1007,19 +1005,20 @@ window.initMarquee = () => {
   // Click on dropdown content opens the link
   const dropdown = document.getElementById('marqueeDropdown');
   const dropdownContent = document.getElementById('marqueeDropdownContent');
-  
+
   if (dropdown && dropdownContent) {
-    dropdown.addEventListener('click', (e) => {
+    dropdown.addEventListener('click', async (e) => {
       // Ignore clicks on close button
       if (e.target.closest('.marquee__dropdown-close')) return;
-      
+
       // Clicking anywhere in dropdown opens the link
       if (currentDropdownKey && marqueeLinks[currentDropdownKey]) {
         e.stopPropagation();
-        marqueeLinks[currentDropdownKey]();
+        await marqueeLinks[currentDropdownKey]();
+        window.closeDropdown();
       }
     });
-    
+
     dropdownContent.style.cursor = 'pointer';
   }
 
