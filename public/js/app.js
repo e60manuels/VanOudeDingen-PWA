@@ -1,6 +1,6 @@
 const API = 'https://vanoudedingen.nl/wp-json/wp/v2';
 const SKIP = ['inspiratie', 'koopjeshoek', 'illustratie'];
-const APP_VERSION = 'v1.5.6';
+const APP_VERSION = 'v1.5.11';
 
 let allPosts = [];
 let cats = {}; // id → category
@@ -21,25 +21,33 @@ const BACK_PRESS_DELAY = 2000; // 2 seconds between presses to exit app
  * @param {String} size - thumbnail, medium, large, full
  */
 const getImg = (p, size = 'large') => {
-  try {
-    // 1. Try featured media with specific size
-    const media = p._embedded?.['wp:featuredmedia']?.[0];
-    if (media) {
-      const sizes = media.media_details?.sizes;
-      if (sizes?.[size]) return sizes[size].source_url;
-      // Fallback within sizes
-      if (sizes?.large) return sizes.large.source_url;
-      if (sizes?.medium_large) return sizes.medium_large.source_url;
-      return media.source_url;
-    }
-  } catch (e) {}
+  // 1. Try featured media with specific size
+  const media = p._embedded?.['wp:featuredmedia']?.[0];
+  if (media) {
+    const sizes = media.media_details?.sizes;
+    if (sizes?.[size]) return sizes[size].source_url;
+    // Fallback within sizes
+    if (sizes?.large) return sizes.large.source_url;
+    if (sizes?.medium_large) return sizes.medium_large.source_url;
+    if (sizes?.medium) return sizes.medium.source_url;
+    if (sizes?.thumbnail) return sizes.thumbnail.source_url;
+    // If media exists but has no sizes (permission error), try source_url
+    if (media.source_url) return media.source_url;
+  }
 
   // 2. Fallback: parse first <img src="..."> from content HTML
   try {
     const m = (p.content?.rendered || '').match(/<img[^>]+src=["']([^"']+)["']/i);
-    if (m) return m[1];
+    if (m) {
+      let url = m[1];
+      // Fix http to https for vanoudedingen.nl images
+      if (url.startsWith('http://vanoudedingen.nl')) {
+        url = url.replace('http://', 'https://');
+      }
+      return url;
+    }
   } catch (e) {}
-  
+
   return '';
 };
 
@@ -517,9 +525,16 @@ function initGalleryProgress(gallery, totalImages) {
 window.openMenu = () => {
   const menuDrawer = document.getElementById('menuDrawer');
   const menuOverlay = document.getElementById('menuOverlay');
+  
+  // Reset menu scroll position to top
+  const menuItems = document.getElementById('menuItemsContainer');
+  if (menuItems) menuItems.scrollTop = 0;
+  
   menuDrawer.classList.add('open');
   menuOverlay.classList.add('open');
   document.body.style.overflow = 'hidden';
+  document.body.style.overscrollBehavior = 'none';
+  document.documentElement.style.overscrollBehavior = 'none';
   panelStack.push('menu');
   history.pushState({ panel: 'menu' }, '');
 };
@@ -530,6 +545,8 @@ window.closeMenu = () => {
   menuDrawer.classList.remove('open');
   menuOverlay.classList.remove('open');
   document.body.style.overflow = '';
+  document.body.style.overscrollBehavior = '';
+  document.documentElement.style.overscrollBehavior = '';
   panelStack.pop();
 };
 
@@ -882,7 +899,8 @@ window.renderDrawerMenu = () => {
     <span class="menu-drawer__version">${APP_VERSION}</span>
     <a href="https://facebook.com/vanoudedingen" target="_blank" rel="noopener" aria-label="Facebook"><svg viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg></a>
     <a href="https://instagram.com/vanoudedingen" target="_blank" rel="noopener" aria-label="Instagram"><svg viewBox="0 0 24 24"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37zM17.5 6.5h.01"/></svg></a>
-    <a href="https://pinterest.com/vanoudedingen" target="_blank" rel="noopener" aria-label="Pinterest"><svg viewBox="0 0 24 24"><path d="M12.16 2C6.4 2 2 6.13 2 11.13c0 2.24.75 4.31 2.05 5.92.2.24.28.56.23.87l-.36 1.8c-.08.4.3.74.7.6l1.7-.58c.28-.1.59-.04.85.12 1.63 1.05 3.5 1.62 5.43 1.62 5.76 0 10.16-4.13 10.16-9.13C22.32 6.13 17.92 2 12.16 2z"/></svg></a>`;
+    <a href="https://pinterest.com/vanoudedingen" target="_blank" rel="noopener" aria-label="Pinterest"><svg viewBox="0 0 24 24"><path d="M12 0C5.373 0 0 5.373 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.403.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.65 0-5.789 2.738-5.789 5.57 0 1.104.425 2.286.956 2.928.105.128.12.24.089.374-.098.403-.316 1.293-.359 1.475-.057.238-.189.289-.437.174-1.627-.757-2.645-2.48-2.645-4.478 0-3.65 2.656-7.004 7.658-7.004 4.009 0 7.123 2.857 7.123 6.668 0 3.976-2.507 7.176-5.987 7.176-1.169 0-2.268-.608-2.644-1.328 0 0-.579 2.201-.719 2.737-.261.992-.966 2.225-1.44 2.988.873.263 1.787.403 2.733.403 6.627 0 12-5.373 12-12S18.627 0 12 0z"/></svg></a>
+  `;
 };
 
 /* ── MARQUEE DROPDOWN ── */
@@ -1226,7 +1244,7 @@ window.performSearch = async (query) => {
     });
     
     // Hide keyboard after showing results with delay
-    keyboardTimeout = setTimeout(window.hideKeyboard, 5000);
+    keyboardTimeout = setTimeout(window.hideKeyboard, 4000);
     
   } catch (e) {
     console.error('Search error:', e);
