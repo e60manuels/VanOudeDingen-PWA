@@ -1,6 +1,6 @@
 const API = 'https://vanoudedingen.nl/wp-json/wp/v2';
 const SKIP = ['inspiratie', 'koopjeshoek', 'illustratie'];
-const APP_VERSION = 'v1.5.11';
+const APP_VERSION = 'v1.5.15';
 
 let allPosts = [];
 let cats = {}; // id → category
@@ -54,6 +54,16 @@ const getImg = (p, size = 'large') => {
 const getCatName = p => { try { return cats[p.categories[0]]?.name || ''; } catch { return ''; } };
 const price = html => { const m = (html || '').match(/€\s*[\d.,]+/); return m ? m[0] : ''; };
 const stripHtml = html => (html || '').replace(/<[^>]+>/g, '').trim();
+
+/**
+ * Upgrade WordPress image URL to full size
+ * Converts medium/large URLs to full resolution
+ */
+const getFullImageSize = url => {
+  if (!url) return url;
+  // Match WordPress image URLs with size suffixes (-300x300, -768x768, -1024x1024, -150x150, etc.)
+  return url.replace(/(-\d+x\d+)(\.[a-z]+)$/i, '$2');
+};
 
 const decodeHtmlEntities = html => {
   if (!html) return '';
@@ -562,8 +572,11 @@ window.openPagePanel = (pageData) => {
   const fullTitle = getPageTitle(pageData);
   if (pagePanelTitleSticky) pagePanelTitleSticky.textContent = fullTitle;
 
-  // Check if this is "In de media" page
+  // Set data-slug attribute for targeted styling
   const slug = pageData.slug || '';
+  pagePanel.setAttribute('data-slug', slug);
+
+  // Check if this is "In de media" page
   const isMediaPage = slug === 'in-de-media' || slug.includes('media');
 
   let raw = pageData.content?.rendered || '';
@@ -709,7 +722,7 @@ function renderMediaPage(container, rawHtml, pageData) {
     <div class="media-item">
       ${item.images && item.images.length > 0 ? `
         <div class="media-item__link-wrap" style="position: relative;" onclick="openMediaModal(${itemIndex})">
-          <img class="media-item__img skeleton" src="${item.images[0].src}" alt="${item.images[0].alt}" loading="lazy" onload="this.classList.remove('skeleton')" />
+          <img class="media-item__img skeleton" src="${getFullImageSize(item.images[0].src)}" alt="${item.images[0].alt}" loading="lazy" onload="this.classList.remove('skeleton')" />
           ${item.images.length > 1 ? `<span class="media-item__image-count">${item.images.length}</span>` : ''}
         </div>
       ` : ''}
@@ -769,15 +782,16 @@ window.closePagePanel = () => {
   const pagePanel = document.getElementById('pagePanel');
   pagePanel.classList.remove('open');
   pagePanel.classList.remove('page-panel--media'); // Remove media-specific class
+  pagePanel.removeAttribute('data-slug'); // Remove slug attribute
   document.getElementById('pageOverlay').classList.remove('open');
   document.body.style.overflow = '';
-  
+
   // Reset scroll position when closing
   pagePanel.scrollTop = 0;
-  
+
   // Optional: Clear content to ensure fresh load next time
   // document.getElementById('pagePanelContent').innerHTML = '';
-  
+
   panelStack.pop();
 };
 
@@ -804,7 +818,7 @@ window.openMediaModal = (itemIndex) => {
   // Render images
   gallery.innerHTML = item.images.map((img, i) => `
     <div class="media-modal__img-wrap">
-      <img class="media-modal__img" src="${img.src}" alt="${img.alt || ''}" loading="lazy" />
+      <img class="media-modal__img" src="${getFullImageSize(img.src)}" alt="${img.alt || ''}" loading="lazy" />
     </div>
   `).join('');
   
